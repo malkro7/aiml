@@ -1,0 +1,13 @@
+# OS/IDE
+__pycache__/
+*.pyc
+.venv/
+*.ipynb_checkpoints/
+
+# Data & artifacts
+data/
+*.csv
+*.parquet
+
+# Misc temp
+.tmp.driveupload/
