@@ -1,7 +1,36 @@
+import os, json
+from pathlib import Path
+import numpy as np
 import flwr as fl
 from flwr.server.strategy import FedAvg
 from typing import List, Tuple, Optional
 import mlflow
+from flwr.common import ndarrays_to_parameters
+from common.model import get_model  # you have get_model(input_shape=...)
+
+INIT_DIR = Path(os.getenv("INIT_MODEL_DIR", "/models/baseline"))
+
+def load_initial_parameters():
+    """Build the same model, load centralized weights, convert to Flower Parameters."""
+    weights_path = INIT_DIR / "model.weights.h5"  # saved by your centralized script
+    meta_path = INIT_DIR / "meta.json"
+
+    if not weights_path.exists() or not meta_path.exists():
+        print(f"[warm-start] No baseline found at {INIT_DIR}. Starting from random init.")
+        return None
+
+    meta = json.load(open(meta_path))
+    input_dim = int(meta["input_dim"])
+
+    # rebuild the exact architecture
+    model = get_model(input_shape=(input_dim,))
+    # (Keras models with InputLayer are already built; if you ever change that, uncomment:)
+    # model.build((None, input_dim))
+    model.load_weights(str(weights_path))
+
+    nds = [w.astype(np.float32) for w in model.get_weights()]
+    print(f"[warm-start] Loaded {len(nds)} weight tensors from {weights_path.name}")
+    return ndarrays_to_parameters(nds)
 
 # ✅ Set up MLflow for server aggregation
 mlflow.set_tracking_uri("http://mlflow:5000")  # internal service name from docker-compose
@@ -73,9 +102,13 @@ class FedAvgWithMLflow(FedAvg):
         return aggregated_loss, aggregated_metrics
 
 
-if __name__ == "__main__":
+def main():
+
+    initial_params = load_initial_parameters()
+
     # ✅ Use our custom strategy
     strategy = FedAvgWithMLflow(
+        initial_parameters=initial_params,
         fraction_fit=1.0,
         min_fit_clients=3,
         min_available_clients=3,
@@ -88,3 +121,6 @@ if __name__ == "__main__":
         config=fl.server.ServerConfig(num_rounds=5),
         strategy=strategy,
     )
+
+if __name__ == "__main__":
+    main()

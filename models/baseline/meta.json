@@ -1,0 +1,25 @@
+{
+  "input_dim": 10,
+  "categorical_cols": [
+    "type"
+  ],
+  "numeric_cols": [
+    "amount",
+    "oldbalanceOrg",
+    "newbalanceOrig",
+    "oldbalanceDest",
+    "newbalanceDest"
+  ],
+  "feature_names": [
+    "type_CASH_IN",
+    "type_CASH_OUT",
+    "type_DEBIT",
+    "type_PAYMENT",
+    "type_TRANSFER",
+    "amount",
+    "oldbalanceOrg",
+    "newbalanceOrig",
+    "oldbalanceDest",
+    "newbalanceDest"
+  ]
+}

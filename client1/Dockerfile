@@ -3,4 +3,5 @@ FROM python:3.10-slim
 WORKDIR /app
 COPY . /app
 RUN pip install --upgrade pip \
-    && pip install flwr tensorflow pandas scikit-learn kafka-python matplotlib seaborn mlflow
+    && pip install flwr tensorflow pandas scikit-learn kafka-python matplotlib seaborn mlflow numpy ydata-profiling==4.9.0
+    

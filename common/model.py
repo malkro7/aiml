@@ -16,3 +16,7 @@ def get_model(input_shape):
         metrics=['accuracy', tf.keras.metrics.AUC(name='auc')]
     )
     return model
+
+def build_model(input_dim: int):
+    # Thin wrapper so the rest of your code can keep calling build_model(...)
+    return get_model(input_shape=(input_dim,))

@@ -1,5 +1,7 @@
 # docker-compose.yml
 version: '3.9'
+volumes:
+  models:
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
@@ -39,43 +41,92 @@ services:
       - "8085:8085"
     volumes:
       - ./common:/app/common
+      - ./data:/data
+      - ./models:/models
+      - ./centralized_model:/app/centralized_model
+    environment:
+      - INIT_MODEL_DIR=/models/baseline
+      - PYTHONPATH=/app
     command: ["python", "server.py"]
 
   client1:
     build: ./client1
     environment:
       - CLIENT_ID=1
+      - BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TOPICS=amount_low
+      - GROUP_ID=eda-client1
+      - MAX_MESSAGES=200000        # adjust as you like
+      - TIMEOUT_SEC=120            # stop waiting after 2 minutes
+      - EDA_SAMPLE=200000          # optional downsample for plotting speed
+      # - KEY_PATH=payload         # uncomment if your JSON nests the record
+      # - STRICT_KEYS=true         # require all columns present
+      - SCALER_PATH=/models/baseline/scaler.joblib
+      - PYTHONPATH=/app
+      - PREPROCESSOR_PATH=/models/baseline/preprocessor.joblib
+      - META_PATH=/models/baseline/meta.json
     volumes:
       - ./common:/app/common
       - ./data:/data 
+      - ./models:/models
     depends_on:
       - kafka
       - server
-    command: ["python", "client.py"]
+    working_dir: /app
+    command: ["/bin/bash", "-c", "python /app/common/eda/eda_kafka_runner.py || true; python client.py"]
+
 
   client2:
     build: ./client1
     environment:
       - CLIENT_ID=2
+      - BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TOPICS=amount_medium
+      - GROUP_ID=eda-client2
+      - MAX_MESSAGES=200000        # adjust as you like
+      - TIMEOUT_SEC=120            # stop waiting after 2 minutes
+      - EDA_SAMPLE=200000          # optional downsample for plotting speed
+      # - KEY_PATH=payload         # uncomment if your JSON nests the record
+      # - STRICT_KEYS=true         # require all columns present
+      - SCALER_PATH=/models/baseline/scaler.joblib
+      - PYTHONPATH=/app
+      - PREPROCESSOR_PATH=/models/baseline/preprocessor.joblib
+      - META_PATH=/models/baseline/meta.json
     volumes:
       - ./common:/app/common
       - ./data:/data 
+      - ./models:/models
     depends_on:
       - kafka
       - server
-    command: ["python", "client.py"]
+    working_dir: /app
+    command: ["/bin/bash", "-c", "python /app/common/eda/eda_kafka_runner.py || true; python client.py"]
 
   client3:
     build: ./client1
     environment:
       - CLIENT_ID=3
+      - BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_TOPICS=amount_high
+      - GROUP_ID=eda-client3
+      - MAX_MESSAGES=200000        # adjust as you like
+      - TIMEOUT_SEC=120            # stop waiting after 2 minutes
+      - EDA_SAMPLE=200000          # optional downsample for plotting speed
+      # - KEY_PATH=payload         # uncomment if your JSON nests the record
+      # - STRICT_KEYS=true         # require all columns present
+      - SCALER_PATH=/models/baseline/scaler.joblib
+      - PYTHONPATH=/app
+      - PREPROCESSOR_PATH=/models/baseline/preprocessor.joblib
+      - META_PATH=/models/baseline/meta.json
     volumes:
       - ./common:/app/common
       - ./data:/data 
+      - ./models:/models
     depends_on:
       - kafka
       - server
-    command: ["python", "client.py"]
+    working_dir: /app
+    command: ["/bin/bash", "-c", "python /app/common/eda/eda_kafka_runner.py || true; python client.py"]
 
   producer:
     build: ./producer
