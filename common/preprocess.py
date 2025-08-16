@@ -51,26 +51,44 @@ def df_from_records(records):
     df = df.drop(columns=[c for c in DROP_COLS if c in df.columns], errors="ignore")
     return df
 
+# --- PATCH START: replace transform_for_training() with this ---
 def transform_for_training(df: pd.DataFrame):
     """
     Returns (X, y) where:
       - X is np.ndarray[float32] after ColumnTransformer (OHE + scale)
       - y is None if TARGET not present
     """
+    # target
     y = df[TARGET].astype(int).values if TARGET in df.columns else None
 
-    # Keep only columns the preprocessor knows about
-    cols = expected_columns()
-    # Create any missing columns with safe defaults
-    for c in cols:
-        if c not in df.columns:
-            df[c] = np.nan if df[c: c].dtype.kind not in ("O","U","S") else ""
+    meta = _load_meta()
+    cats = meta.get("categorical_cols", [])
+    nums = meta.get("numeric_cols", [])
 
+    # 1) Ensure all expected columns exist with safe defaults
+    for c in cats:
+        if c not in df.columns:
+            df[c] = ""                  # categorical default as empty string
+        else:
+            # make sure dtype is string-like/object
+            df[c] = df[c].astype("string").fillna("")
+
+    for c in nums:
+        if c not in df.columns:
+            df[c] = np.nan              # numeric default as NaN
+        else:
+            df[c] = pd.to_numeric(df[c], errors="coerce")  # coerce bad values to NaN
+
+    # 2) Order columns exactly as the preprocessor expects
+    cols = cats + nums
     df_ordered = df[[c for c in cols if c in df.columns]].copy()
 
+    # 3) Transform
     preproc = load_preprocessor()
     X = preproc.transform(df_ordered).astype("float32")
     return X, y
+# --- PATCH END ---
+
 
 
 #######Older Version##############

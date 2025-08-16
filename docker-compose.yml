@@ -130,10 +130,14 @@ services:
 
   producer:
     build: ./producer
+    environment:
+      - PYTHONPATH=/app
+      - META_PATH=/models/baseline/meta.json
     volumes:
       - ./producer:/app
       - ./common:/app/common
       - ./data:/data
+      - ./models/baseline/meta.json:/models/baseline/meta.json:ro
     depends_on:
       - kafka
     command: ["python", "producer.py"]
