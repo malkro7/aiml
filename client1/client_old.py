@@ -11,6 +11,7 @@ from kafka import KafkaConsumer
 import flwr as fl
 from flwr.client import start_client
 from common.client_logic import get_model
+from common.preprocess import df_from_records, transform_for_training
 
 CLIENT_ID = os.getenv("CLIENT_ID", "1")
 

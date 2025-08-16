@@ -23,6 +23,12 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc 'echo > /dev/tcp/localhost/9092'"]
+      interval: 5s
+      timeout: 2s
+      retries: 40
+      start_period: 30s
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -47,6 +53,7 @@ services:
     environment:
       - INIT_MODEL_DIR=/models/baseline
       - PYTHONPATH=/app
+      - TZ=Asia/Kolkata
     command: ["python", "server.py"]
 
   client1:
@@ -65,15 +72,20 @@ services:
       - PYTHONPATH=/app
       - PREPROCESSOR_PATH=/models/baseline/preprocessor.joblib
       - META_PATH=/models/baseline/meta.json
+      - TZ=Asia/Kolkata
+      - MPLBACKEND=Agg
+      - EDA_OUT_DIR=/data/eda/client1
     volumes:
       - ./common:/app/common
       - ./data:/data 
       - ./models:/models
     depends_on:
-      - kafka
-      - server
+      kafka:
+        condition: service_healthy
+      server:
+        condition: service_started
     working_dir: /app
-    command: ["/bin/bash", "-c", "python /app/common/eda/eda_kafka_runner.py || true; python client.py"]
+    command: ["/bin/bash", "-c", "python /app/common/eda/eda_kafka_runner.py; python client.py"]
 
 
   client2:
@@ -92,15 +104,20 @@ services:
       - PYTHONPATH=/app
       - PREPROCESSOR_PATH=/models/baseline/preprocessor.joblib
       - META_PATH=/models/baseline/meta.json
+      - TZ=Asia/Kolkata
+      - MPLBACKEND=Agg
+      - EDA_OUT_DIR=/data/eda/client2
     volumes:
       - ./common:/app/common
       - ./data:/data 
       - ./models:/models
     depends_on:
-      - kafka
-      - server
+      kafka:
+        condition: service_healthy
+      server:
+        condition: service_started
     working_dir: /app
-    command: ["/bin/bash", "-c", "python /app/common/eda/eda_kafka_runner.py || true; python client.py"]
+    command: ["/bin/bash", "-c", "python /app/common/eda/eda_kafka_runner.py; python client.py"]
 
   client3:
     build: ./client1
@@ -118,21 +135,27 @@ services:
       - PYTHONPATH=/app
       - PREPROCESSOR_PATH=/models/baseline/preprocessor.joblib
       - META_PATH=/models/baseline/meta.json
+      - TZ=Asia/Kolkata
+      - MPLBACKEND=Agg
+      - EDA_OUT_DIR=/data/eda/client3
     volumes:
       - ./common:/app/common
       - ./data:/data 
       - ./models:/models
     depends_on:
-      - kafka
-      - server
+      kafka:
+        condition: service_healthy
+      server:
+        condition: service_started
     working_dir: /app
-    command: ["/bin/bash", "-c", "python /app/common/eda/eda_kafka_runner.py || true; python client.py"]
+    command: ["/bin/bash", "-c", "python /app/common/eda/eda_kafka_runner.py; python client.py"]
 
   producer:
     build: ./producer
     environment:
       - PYTHONPATH=/app
       - META_PATH=/models/baseline/meta.json
+      - TZ=Asia/Kolkata
     volumes:
       - ./producer:/app
       - ./common:/app/common
@@ -143,6 +166,8 @@ services:
     command: ["python", "producer.py"]
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.13.0
+    environment:
+      - TZ=Asia/Kolkata
     ports:
       - "5000:5000"
     volumes:

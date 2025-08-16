@@ -15,11 +15,12 @@ Env:
   STRICT_KEYS: true|false (default false) – if true, drop rows missing REQUIRED keys
 """
 
-import os, time, json, datetime as dt
+import os, time, json, datetime as dt, socket
 from typing import List, Dict, Any, Optional
 import pandas as pd
 import numpy as np
 from eda_fraud_report import run  # uses the PDF generator you already have
+from kafka import KafkaConsumer
 
 # ── Expected post-preprocess schema ──────────────────────────────────────────
 # Keep this minimal & robust. We'll accept extras but only coerce known numerics.
@@ -42,9 +43,23 @@ NUMERIC_KEYS = [
     "isFraud",
 ]
 
+def wait_for_kafka(host: str, port: int, timeout: int = 90):
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            with socket.create_connection((host, port), timeout=5):
+                print(f"[EDA] Kafka reachable at {host}:{port}")
+                return
+        except Exception as e:
+            print(f"[EDA] Waiting for Kafka... {e}")
+            time.sleep(2)
+    raise TimeoutError("Kafka did not become available in time.")
+
 # ── Kafka consumer factory (lazy import so unit tests don't need kafka-python)
 def _mk_consumer(topics: List[str], servers: List[str], group_id: str):
-    from kafka import KafkaConsumer
+    servers = os.getenv("BOOTSTRAP_SERVERS", "kafka:9092")
+    host, port = servers.split(":")
+    wait_for_kafka(host, int(port))
     return KafkaConsumer(
         *topics,
         bootstrap_servers=servers,

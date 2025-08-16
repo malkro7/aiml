@@ -27,6 +27,16 @@ SEND_SLEEP_S = float(os.getenv("SEND_SLEEP_S", "0.005"))  # small delay to simul
 LINGER_MS = int(os.getenv("KAFKA_LINGER_MS", "5"))
 ACKS = os.getenv("KAFKA_ACKS", "all")
 
+REQUIRED_COLUMNS = [
+    "type",
+    "amount",
+    "oldbalanceOrg",
+    "newbalanceOrig",
+    "oldbalanceDest",
+    "newbalanceDest",
+    "isFraud",           # keep label if present in your CSV
+]
+
 
 def wait_for_kafka(host=KAFKA_HOST, port=KAFKA_PORT, timeout=60):
     start = time.time()
@@ -84,22 +94,33 @@ def main():
     print(f"ℹ️ amount buckets: <= {q1:.2f} (low), <= {q2:.2f} (med), > {q2:.2f} (high)")
 
     # 3) Prune for streaming using your helpers, but FORCE‑KEEP 'amount' (+ target if present)
-    df = df_from_records(raw_df)  # drops step/nameOrig/nameDest/isFlaggedFraud
-    cols = expected_columns()     # what your preprocessor knows from meta.json
+    # df = df_from_records(raw_df)  # drops step/nameOrig/nameDest/isFlaggedFraud
+    # cols = expected_columns()     # what your preprocessor knows from meta.json
 
-    keep = ["amount"] + cols
-    if "isFraud" in df.columns:
-        keep.append("isFraud")
-    # dedupe while preserving order
-    seen = set()
-    keep = [c for c in keep if (c not in seen and not seen.add(c))]
-    # select existing columns only
-    existing = [c for c in keep if c in df.columns]
-    df = df[existing].copy()
+    # keep = ["amount"] + cols
+    # if "isFraud" in df.columns:
+    #     keep.append("isFraud")
+    # # dedupe while preserving order
+    # seen = set()
+    # keep = [c for c in keep if (c not in seen and not seen.add(c))]
+    # # select existing columns only
+    # existing = [c for c in keep if c in df.columns]
+    # df = df[existing].copy()
 
-    if "amount" not in df.columns:
-        # should not happen because we force-kept 'amount', but guard anyway
-        raise ValueError("Expected 'amount' column is missing after pruning.")
+    # if "amount" not in df.columns:
+    #     # should not happen because we force-kept 'amount', but guard anyway
+    #     raise ValueError("Expected 'amount' column is missing after pruning.")
+
+    df = df_from_records(raw_df)  # already drops step/nameOrig/nameDest/isFlaggedFraud
+
+    # Ensure required columns exist; fail fast if they don't
+    missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
+    if missing:
+        raise ValueError(f"Input missing required columns: {missing}. "
+                     f"Got: {list(df.columns)}")
+
+    # Keep ONLY the raw columns expected on the wire
+    df = df[REQUIRED_COLUMNS].copy()
 
     # 4) Stream records
     sent = 0
